@@ -14,5 +14,6 @@ public enum MaterialType
     Wavy,         // Nested sine interference — organic ripple / channel patterns
     Ridged,       // Ridged multifractal — sharp bright ridges, rock strata look
     Wood,         // Concentric rings from grid centres + turbulence warp
-    Contour       // sin(fBm) — topographic contour lines, flowing organic curves
+    Contour,      // sin(fBm) — topographic contour lines, flowing organic curves
+    Composite     // Two independent noise types in macro-defined zones
 }

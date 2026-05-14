@@ -23,8 +23,8 @@ public class MaterialParameters
     {
         var rng = new SeededRandom(seed ^ 0xFACE);
 
-        // All concrete types (1–12)
-        var type = hint != MaterialType.Auto ? hint : (MaterialType)rng.NextInt(1, 13);
+        // All concrete types (1–13)
+        var type = hint != MaterialType.Auto ? hint : (MaterialType)rng.NextInt(1, 14);
 
         // Marble and Wavy need integer frequencies for tileability; all others are continuous.
         float freq = type is MaterialType.Marble or MaterialType.Wavy

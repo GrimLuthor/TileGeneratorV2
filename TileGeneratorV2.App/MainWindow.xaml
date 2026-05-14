@@ -218,6 +218,7 @@
                 <ComboBoxItem>Ridged</ComboBoxItem>
                 <ComboBoxItem>Wood</ComboBoxItem>
                 <ComboBoxItem>Contour</ComboBoxItem>
+                <ComboBoxItem>Composite</ComboBoxItem>
             </ComboBox>
 
             <!-- Generate -->

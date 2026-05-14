@@ -79,11 +79,17 @@ public class MaterialGenerator
     }
 
     private static INoiseSampler CreateNoiseSampler(MaterialParameters p, int seed)
+        => p.Type == MaterialType.Composite
+            ? CreateCompositeSampler(seed)
+            : CreateSingleSampler(p.Type, seed);
+
+    // Creates a sampler for any non-composite type; used both directly and by composite layers.
+    private static INoiseSampler CreateSingleSampler(MaterialType type, int seed)
     {
         var rng = new SeededRandom(seed ^ 0x1234);
         float crackWidth = rng.NextFloat(0.12f, 0.28f);
 
-        return p.Type switch
+        return type switch
         {
             MaterialType.Cobblestone => new VoronoiNoise(seed, cellBlend: 0.65f),
             MaterialType.Marble      => new MarbleNoise(seed),
@@ -95,5 +101,36 @@ public class MaterialGenerator
             MaterialType.Contour     => new ContourNoise(seed),
             _                        => new PerlinNoise(seed)
         };
+    }
+
+    private static readonly MaterialType[] _compositeCandidates =
+    {
+        MaterialType.Cobblestone, MaterialType.Marble,    MaterialType.Granite,
+        MaterialType.SmoothStone, MaterialType.Rough,     MaterialType.Layered,
+        MaterialType.Cracked,     MaterialType.Cellular,  MaterialType.Wavy,
+        MaterialType.Ridged,      MaterialType.Wood,      MaterialType.Contour,
+    };
+
+    private static INoiseSampler CreateCompositeSampler(int seed)
+    {
+        var rng = new SeededRandom(seed ^ unchecked((int)0xC0A1B2C3));
+
+        int ia = rng.NextInt(0, _compositeCandidates.Length);
+        int ib;
+        do { ib = rng.NextInt(0, _compositeCandidates.Length); } while (ib == ia);
+
+        // Layer A: coarser — gives the macro structural character
+        // Layer B: finer  — gives the micro surface detail
+        float freqA      = rng.NextFloat(3f,   7f);
+        float freqB      = rng.NextFloat(7f,  14f);
+        float macroFreq  = rng.NextFloat(2f,   3f);
+        float threshold  = rng.NextFloat(0.35f, 0.65f);
+        // 40% hard contact, 60% soft gradual transition
+        float blendWidth = rng.NextBool(0.4f) ? 0f : rng.NextFloat(0.08f, 0.22f);
+
+        var layerA = CreateSingleSampler(_compositeCandidates[ia], seed ^ unchecked((int)0x11111111));
+        var layerB = CreateSingleSampler(_compositeCandidates[ib], seed ^ unchecked((int)0x22222222));
+
+        return new CompositeNoise(layerA, freqA, layerB, freqB, seed, macroFreq, threshold, blendWidth);
     }
 }

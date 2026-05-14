@@ -9,3 +9,4 @@ C:\Users\Daniel\RiderProjects\TileGeneratorV2\TileGeneratorV2.Core\obj\Release\n
 C:\Users\Daniel\RiderProjects\TileGeneratorV2\TileGeneratorV2.Core\obj\Release\net9.0\refint\TileGeneratorV2.Core.dll
 C:\Users\Daniel\RiderProjects\TileGeneratorV2\TileGeneratorV2.Core\obj\Release\net9.0\TileGeneratorV2.Core.pdb
 C:\Users\Daniel\RiderProjects\TileGeneratorV2\TileGeneratorV2.Core\obj\Release\net9.0\ref\TileGeneratorV2.Core.dll
+C:\Users\Daniel\RiderProjects\TileGeneratorV2\TileGeneratorV2.Core\obj\Release\net9.0\TileGeneratorV2.Core.sourcelink.json
