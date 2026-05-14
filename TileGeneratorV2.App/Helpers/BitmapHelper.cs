@@ -54,6 +54,35 @@ public static class BitmapHelper
         return BitmapSource.Create(dstW, dstH, 96, 96, PixelFormats.Bgra32, null, pixels, stride);
     }
 
+    // Creates a tiled grid from an array of per-tile buffers (tiles[tx, ty]).
+    public static BitmapSource ToTiledBitmapSource(PixelBuffer[,] tiles, int scale = 1)
+    {
+        int tilesX  = tiles.GetLength(0);
+        int tilesY  = tiles.GetLength(1);
+        int srcSize = PixelBuffer.Size;
+        int dstW    = srcSize * tilesX * scale;
+        int dstH    = srcSize * tilesY * scale;
+        int stride  = dstW * 4;
+        var pixels  = new byte[dstH * stride];
+
+        for (int y = 0; y < dstH; y++)
+        for (int x = 0; x < dstW; x++)
+        {
+            int tx   = (x / scale) / srcSize;
+            int ty   = (y / scale) / srcSize;
+            int srcX = (x / scale) % srcSize;
+            int srcY = (y / scale) % srcSize;
+            var c    = tiles[tx, ty][srcX, srcY];
+            int i    = (y * dstW + x) * 4;
+            pixels[i]     = c.B;
+            pixels[i + 1] = c.G;
+            pixels[i + 2] = c.R;
+            pixels[i + 3] = c.A;
+        }
+
+        return BitmapSource.Create(dstW, dstH, 96, 96, PixelFormats.Bgra32, null, pixels, stride);
+    }
+
     // Parses a hex color string (#RRGGBB or #RGB) into ColorRgba.
     public static ColorRgba ParseHexColor(string hex)
     {

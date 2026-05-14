@@ -4,6 +4,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using TileGeneratorV2.App.Helpers;
 using TileGeneratorV2.Core.Materials;
+using TileGeneratorV2.Core.Structure;
 using TileGeneratorV2.Core.Util;
 
 namespace TileGeneratorV2.App;
@@ -124,17 +125,36 @@ public partial class MainWindow : Window
             ? null
             : MaterialParameters.FromSeed(seed, (MaterialType)MaterialCombo.SelectedIndex);
 
-        var sw     = Stopwatch.StartNew();
-        var buffer = new MaterialGenerator().Generate(seed, palette, matParams);
+        var structParams = StructureParameters.FromSeed(seed);
+        var matGen       = new MaterialGenerator();
+        var structGen    = new StructureGenerator();
+
+        var sw = Stopwatch.StartNew();
+
+        // Single tile at world position (0, 0)
+        var single = matGen.Generate(seed, palette, matParams);
+        structGen.Apply(single, 0, 0, structParams);
+        SingleTileImage.Source = BitmapHelper.ToBitmapSource(single, scale: 4);
+
+        // 4×4 tiling preview — each tile generated at its correct world position
+        // so brick patterns continue seamlessly across tile boundaries
+        var tiles = new PixelBuffer[4, 4];
+        for (int ty = 0; ty < 4; ty++)
+        for (int tx = 0; tx < 4; tx++)
+        {
+            tiles[tx, ty] = matGen.Generate(seed, palette, matParams);
+            structGen.Apply(tiles[tx, ty], tx, ty, structParams);
+        }
+        TilingPreviewImage.Source = BitmapHelper.ToTiledBitmapSource(tiles, scale: 2);
+
         sw.Stop();
 
-        SingleTileImage.Source    = BitmapHelper.ToBitmapSource(buffer, scale: 4);
-        TilingPreviewImage.Source = BitmapHelper.ToTiledBitmapSource(buffer, tilesX: 4, tilesY: 4, scale: 2);
-
-        var effectiveParams = matParams ?? MaterialParameters.FromSeed(seed);
-        StatusLabel.Text = $"{effectiveParams.Type}  freq={effectiveParams.BaseFrequency}  " +
-                           $"oct={effectiveParams.Octaves}  curve={effectiveParams.Curve}\n" +
-                           $"Generated in {sw.ElapsedMilliseconds}ms";
+        var mp = matParams ?? MaterialParameters.FromSeed(seed);
+        var sp = structParams;
+        StatusLabel.Text =
+            $"{mp.Type}  freq={mp.BaseFrequency:F1}  oct={mp.Octaves}  curve={mp.Curve}\n" +
+            $"{sp.Bond}  W={sp.BrickWidth}  H={sp.BrickHeight}  M={sp.MortarWidth:F1}\n" +
+            $"Generated in {sw.ElapsedMilliseconds}ms";
     }
 
     private static float ParseDegrees(string? text, float fallback)

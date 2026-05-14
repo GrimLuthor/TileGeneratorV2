@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("TileGeneratorV2.App")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+83ab7b300c99443a6bfe6da5959cdbffd756faa9")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+28089b762abbd3d1c496806b34ca905a09dcf484")]
 [assembly: System.Reflection.AssemblyProductAttribute("TileGeneratorV2.App")]
 [assembly: System.Reflection.AssemblyTitleAttribute("TileGeneratorV2.App")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
