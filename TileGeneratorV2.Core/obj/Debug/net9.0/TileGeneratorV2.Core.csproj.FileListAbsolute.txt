@@ -1,0 +1,11 @@
+C:\Users\Daniel\RiderProjects\TileGeneratorV2\TileGeneratorV2.Core\obj\Debug\net9.0\TileGeneratorV2.Core.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Daniel\RiderProjects\TileGeneratorV2\TileGeneratorV2.Core\obj\Debug\net9.0\TileGeneratorV2.Core.AssemblyInfoInputs.cache
+C:\Users\Daniel\RiderProjects\TileGeneratorV2\TileGeneratorV2.Core\obj\Debug\net9.0\TileGeneratorV2.Core.AssemblyInfo.cs
+C:\Users\Daniel\RiderProjects\TileGeneratorV2\TileGeneratorV2.Core\obj\Debug\net9.0\TileGeneratorV2.Core.csproj.CoreCompileInputs.cache
+C:\Users\Daniel\RiderProjects\TileGeneratorV2\TileGeneratorV2.Core\bin\Debug\net9.0\TileGeneratorV2.Core.deps.json
+C:\Users\Daniel\RiderProjects\TileGeneratorV2\TileGeneratorV2.Core\bin\Debug\net9.0\TileGeneratorV2.Core.dll
+C:\Users\Daniel\RiderProjects\TileGeneratorV2\TileGeneratorV2.Core\bin\Debug\net9.0\TileGeneratorV2.Core.pdb
+C:\Users\Daniel\RiderProjects\TileGeneratorV2\TileGeneratorV2.Core\obj\Debug\net9.0\TileGeneratorV2.Core.dll
+C:\Users\Daniel\RiderProjects\TileGeneratorV2\TileGeneratorV2.Core\obj\Debug\net9.0\refint\TileGeneratorV2.Core.dll
+C:\Users\Daniel\RiderProjects\TileGeneratorV2\TileGeneratorV2.Core\obj\Debug\net9.0\TileGeneratorV2.Core.pdb
+C:\Users\Daniel\RiderProjects\TileGeneratorV2\TileGeneratorV2.Core\obj\Debug\net9.0\ref\TileGeneratorV2.Core.dll

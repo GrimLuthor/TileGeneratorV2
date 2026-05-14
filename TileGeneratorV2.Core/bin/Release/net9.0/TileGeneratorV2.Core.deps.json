@@ -1,0 +1,23 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v9.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v9.0": {
+      "TileGeneratorV2.Core/1.0.0": {
+        "runtime": {
+          "TileGeneratorV2.Core.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "TileGeneratorV2.Core/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

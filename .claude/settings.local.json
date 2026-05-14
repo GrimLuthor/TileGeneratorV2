@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\Daniel\\\\RiderProjects\\\\TileGeneratorV2\" -Recurse -Name | Where-Object { $_ -notmatch '\\\\.idea' })",
+      "PowerShell(dotnet --version)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\Daniel\\\\RiderProjects\\\\TileGeneratorV2\" -Recurse -Name | Where-Object { $_ -notmatch '\\(\\\\.idea|\\\\.claude|obj|bin\\)' })",
+      "PowerShell(New-Item *)",
+      "PowerShell(cd \"C:\\\\Users\\\\Daniel\\\\RiderProjects\\\\TileGeneratorV2\\\\TileGeneratorV2.App\\\\bin\\\\Debug\\\\net9.0-windows\"; .\\\\TileGeneratorV2.App.exe 2>&1; Write-Output \"exit: $LASTEXITCODE\")",
+      "PowerShell(Start-Process \"C:\\\\Users\\\\Daniel\\\\RiderProjects\\\\TileGeneratorV2\\\\TileGeneratorV2.App\\\\bin\\\\Debug\\\\net9.0-windows\\\\TileGeneratorV2.App.exe\")",
+      "PowerShell(Get-Process *)"
+    ]
+  }
+}

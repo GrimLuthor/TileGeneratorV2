@@ -1,0 +1,79 @@
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using TileGeneratorV2.Core.Util;
+
+namespace TileGeneratorV2.App.Helpers;
+
+public static class BitmapHelper
+{
+    // Creates a BitmapSource from a PixelBuffer, scaled up by 'scale'.
+    public static BitmapSource ToBitmapSource(PixelBuffer buffer, int scale = 1)
+    {
+        int dstW = PixelBuffer.Size * scale;
+        int dstH = PixelBuffer.Size * scale;
+        int stride = dstW * 4;
+        var pixels = new byte[dstH * stride];
+
+        for (int y = 0; y < dstH; y++)
+        for (int x = 0; x < dstW; x++)
+        {
+            var c = buffer[x / scale, y / scale];
+            int i = (y * dstW + x) * 4;
+            pixels[i]     = c.B;
+            pixels[i + 1] = c.G;
+            pixels[i + 2] = c.R;
+            pixels[i + 3] = c.A;
+        }
+
+        return BitmapSource.Create(dstW, dstH, 96, 96, PixelFormats.Bgra32, null, pixels, stride);
+    }
+
+    // Creates an NxN tiled grid of the buffer at 'scale' pixels per source pixel.
+    public static BitmapSource ToTiledBitmapSource(PixelBuffer buffer, int tilesX, int tilesY, int scale = 1)
+    {
+        int srcSize = PixelBuffer.Size;
+        int dstW    = srcSize * tilesX * scale;
+        int dstH    = srcSize * tilesY * scale;
+        int stride  = dstW * 4;
+        var pixels  = new byte[dstH * stride];
+
+        for (int y = 0; y < dstH; y++)
+        for (int x = 0; x < dstW; x++)
+        {
+            // Wrap source coordinates across tiles
+            int srcX = (x / scale) % srcSize;
+            int srcY = (y / scale) % srcSize;
+            var c = buffer[srcX, srcY];
+            int i = (y * dstW + x) * 4;
+            pixels[i]     = c.B;
+            pixels[i + 1] = c.G;
+            pixels[i + 2] = c.R;
+            pixels[i + 3] = c.A;
+        }
+
+        return BitmapSource.Create(dstW, dstH, 96, 96, PixelFormats.Bgra32, null, pixels, stride);
+    }
+
+    // Parses a hex color string (#RRGGBB or #RGB) into ColorRgba.
+    public static ColorRgba ParseHexColor(string hex)
+    {
+        hex = hex.TrimStart('#').Trim();
+        try
+        {
+            if (hex.Length == 3)
+                hex = $"{hex[0]}{hex[0]}{hex[1]}{hex[1]}{hex[2]}{hex[2]}";
+            if (hex.Length >= 6)
+            {
+                byte r = Convert.ToByte(hex[..2], 16);
+                byte g = Convert.ToByte(hex[2..4], 16);
+                byte b = Convert.ToByte(hex[4..6], 16);
+                return new ColorRgba(r, g, b);
+            }
+        }
+        catch { /* fall through to default */ }
+        return new ColorRgba(128, 128, 128);
+    }
+
+    // Converts ColorRgba to a WPF Color for UI elements.
+    public static Color ToWpfColor(ColorRgba c) => Color.FromRgb(c.R, c.G, c.B);
+}

@@ -1,0 +1,39 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v9.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v9.0": {
+      "TileGeneratorV2.App/1.0.0": {
+        "dependencies": {
+          "TileGeneratorV2.Core": "1.0.0"
+        },
+        "runtime": {
+          "TileGeneratorV2.App.dll": {}
+        }
+      },
+      "TileGeneratorV2.Core/1.0.0": {
+        "runtime": {
+          "TileGeneratorV2.Core.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "TileGeneratorV2.App/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "TileGeneratorV2.Core/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}
