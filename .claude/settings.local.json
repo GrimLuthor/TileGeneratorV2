@@ -8,7 +8,8 @@
       "PowerShell(cd \"C:\\\\Users\\\\Daniel\\\\RiderProjects\\\\TileGeneratorV2\\\\TileGeneratorV2.App\\\\bin\\\\Debug\\\\net9.0-windows\"; .\\\\TileGeneratorV2.App.exe 2>&1; Write-Output \"exit: $LASTEXITCODE\")",
       "PowerShell(Start-Process \"C:\\\\Users\\\\Daniel\\\\RiderProjects\\\\TileGeneratorV2\\\\TileGeneratorV2.App\\\\bin\\\\Debug\\\\net9.0-windows\\\\TileGeneratorV2.App.exe\")",
       "PowerShell(Get-Process *)",
-      "PowerShell(Start-Process \"TileGeneratorV2.App\\\\bin\\\\Release\\\\net9.0-windows\\\\TileGeneratorV2.App.exe\")"
+      "PowerShell(Start-Process \"TileGeneratorV2.App\\\\bin\\\\Release\\\\net9.0-windows\\\\TileGeneratorV2.App.exe\")",
+      "Bash(git rm *)"
     ]
   }
 }
