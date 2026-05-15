@@ -24,8 +24,8 @@ public class StructureParameters
         var rng = new SeededRandom(seed ^ unchecked((int)0x577EC700));
 
         var bond   = (BondType)rng.NextInt(0, 3);
-        int brickH = rng.NextInt(4, 11);                                  // 4–10 px
-        int brickW = rng.NextInt(brickH, Math.Min(brickH * 3 + 1, 22));  // H to 3H, ≤ 22
+        int brickH = rng.NextInt(4, 23);                                  // 4–22 px
+        int brickW = rng.NextInt(brickH, Math.Min(brickH * 3 + 1, 30));  // H to 3H, ≤ 30
         float mortarW = rng.NextFloat(1.0f, 2.8f);
 
         return new StructureParameters(bond, brickW, brickH, mortarW, seed);

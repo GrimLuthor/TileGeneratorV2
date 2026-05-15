@@ -20,9 +20,13 @@ public class StructureGenerator
         {
             int wx = offsetX + px;
             int wy = offsetY + py;
-            var m = SampleMortar(wx, wy, p);
+            var m     = SampleMortar(wx, wy, p);
+            var color = ApplyBrickJitter(buffer[px, py], m.UnitId, p.Seed);
+            if (m.IsStone && m.TopLight != 0f)
+                color = ColorMath.AdjustHsl(color, 0f, 0f, m.TopLight);
             if (!m.IsStone)
-                buffer[px, py] = ApplyGroove(buffer[px, py], m, wx, wy, p.Seed);
+                color = ApplyGroove(color, m, wx, wy, p.Seed);
+            buffer[px, py] = color;
         }
     }
 
@@ -54,6 +58,15 @@ public class StructureGenerator
         var grooveColor = ColorMath.HslToRgb(h, Math.Max(s - 0.15f, 0f), grooveLit);
 
         return ColorMath.Lerp(pixel, grooveColor, t);
+    }
+
+    private static ColorRgba ApplyBrickJitter(ColorRgba color, int unitId, int seed)
+    {
+        var (hv, sv, lv) = SeededRandom.Hash3(seed ^ unchecked((int)0xB4B4B4B4), unitId);
+        float hShift = (hv - 0.5f) * 0.08f;   // ±0.04 hue
+        float sShift = (sv - 0.5f) * 0.20f;   // ±0.10 saturation
+        float lShift = (lv - 0.5f) * 0.16f;   // ±0.08 lightness (most visible)
+        return ColorMath.AdjustHsl(color, hShift, sShift, lShift);
     }
 
     // ── Bond dispatch ─────────────────────────────────────────────────────────
@@ -117,7 +130,12 @@ public class StructureGenerator
 
     private static MortarSample MortarValue(int localX, int localY, int W, int H, float mHalf, int unitId)
     {
-        if (mHalf <= 0f) return MortarSample.Stone;
+        int   lightRange = Math.Max(2, H / 3);
+        float topGrad    = Math.Max(0f, 1f - (float)localY / lightRange);
+        float botGrad    = Math.Max(0f, 1f - (float)(H - 1 - localY) / lightRange);
+        float topLight   = topGrad * 0.12f - botGrad * 0.06f;
+
+        if (mHalf <= 0f) return new MortarSample(0f, 0f, unitId, topLight);
 
         float dX = Math.Min(localX, W - 1 - localX);
         float dY = Math.Min(localY, H - 1 - localY);
@@ -136,7 +154,7 @@ public class StructureGenerator
 
         float t     = Math.Clamp(d / mHalf, 0f, 1f);
         float depth = 1f - t * t * (3f - 2f * t);             // smoothstep: 1 at edge → 0 at interior
-        return depth <= 0f ? MortarSample.Stone : new MortarSample(depth, shadow, unitId);
+        return new MortarSample(Math.Max(depth, 0f), shadow, unitId, topLight);
     }
 
     // ── Ashlar width generation ───────────────────────────────────────────────
@@ -179,15 +197,16 @@ public class StructureGenerator
 
     private readonly struct MortarSample
     {
-        public readonly float Depth;   // 0 = stone, 1 = groove centre
-        public readonly float Shadow;  // +1 = cast shadow (top edge), -0.5 = uplighting, 0 = vertical
-        public readonly int   UnitId;  // hashed brick identifier for per-brick variation
+        public readonly float Depth;    // 0 = stone, 1 = groove centre
+        public readonly float Shadow;   // +1 = cast shadow (top edge), -0.5 = uplighting, 0 = vertical
+        public readonly int   UnitId;   // hashed brick identifier for per-brick variation
+        public readonly float TopLight; // lightness shift: + = top-edge highlight, - = bottom-edge shadow
 
         public bool IsStone => Depth <= 0f;
 
-        public MortarSample(float depth, float shadow, int unitId)
+        public MortarSample(float depth, float shadow, int unitId, float topLight = 0f)
         {
-            Depth = depth; Shadow = shadow; UnitId = unitId;
+            Depth = depth; Shadow = shadow; UnitId = unitId; TopLight = topLight;
         }
 
         public static readonly MortarSample Stone = default;
