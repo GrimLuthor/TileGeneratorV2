@@ -22,17 +22,22 @@ public class StructureGenerator
             int wy = offsetY + py;
             var m     = SampleMortar(wx, wy, p);
             var color = ApplyBrickJitter(buffer[px, py], m.UnitId, p.Seed);
-            if (m.IsStone && m.TopLight != 0f)
-                color = ColorMath.AdjustHsl(color, 0f, 0f, m.TopLight);
-            if (!m.IsStone)
-                color = ApplyGroove(color, m, wx, wy, p.Seed);
+            if (m.IsStone)
+            {
+                if (m.TopLight != 0f)
+                    color = ColorMath.AdjustHsl(color, 0f, 0f, m.TopLight);
+                color = ApplySurfaceTexture(color, m.UnitId, p.Seed, wx, wy);
+                color = ApplyStains(color, m.UnitId, p.Seed, wx, wy, p.WeatheringStrength);
+            }
+            else
+                color = ApplyGroove(color, m, wx, wy, p.Seed, p.WeatheringStrength);
             buffer[px, py] = color;
         }
     }
 
     // ── Groove rendering ──────────────────────────────────────────────────────
 
-    private static ColorRgba ApplyGroove(ColorRgba pixel, MortarSample m, int wx, int wy, int seed)
+    private static ColorRgba ApplyGroove(ColorRgba pixel, MortarSample m, int wx, int wy, int seed, float weathering = 0f)
     {
         // Per-brick variation: ±20% depth multiplier so each brick's groove reads slightly different
         float unitVar = (SeededRandom.Hash1(seed ^ unchecked(m.UnitId * 1234567), m.UnitId) - 0.5f) * 0.40f;
@@ -57,6 +62,10 @@ public class StructureGenerator
             : Math.Min(l + 0.10f, 0.35f);             // dark material → slightly lighter groove
         var grooveColor = ColorMath.HslToRgb(h, Math.Max(s - 0.15f, 0f), grooveLit);
 
+        // Groove dirt: grime packs into deep joints on weathered walls
+        if (weathering > 0f)
+            grooveColor = ColorMath.AdjustHsl(grooveColor, 0f, weathering * 0.06f, -weathering * 0.08f * m.Depth);
+
         return ColorMath.Lerp(pixel, grooveColor, t);
     }
 
@@ -67,6 +76,51 @@ public class StructureGenerator
         float sShift = (sv - 0.5f) * 0.20f;   // ±0.10 saturation
         float lShift = (lv - 0.5f) * 0.16f;   // ±0.08 lightness (most visible)
         return ColorMath.AdjustHsl(color, hShift, sShift, lShift);
+    }
+
+    private static ColorRgba ApplySurfaceTexture(ColorRgba color, int unitId, int seed, int wx, int wy)
+    {
+        // Large offsets push each brick into a unique region of noise space
+        float offsetX = SeededRandom.Hash1(seed ^ unchecked((int)0xA1B2C3D4), unitId)     * 997f;
+        float offsetY = SeededRandom.Hash1(seed ^ unchecked((int)0xD4C3B2A1), unitId + 1) * 997f;
+        float n       = SmoothHash2D(seed ^ unchecked((int)0x5F3759DF), wx + offsetX, wy + offsetY, 0.25f);
+        return ColorMath.AdjustHsl(color, 0f, 0f, (n - 0.5f) * 0.10f);   // ±5% lightness grain
+    }
+
+    private static float SmoothHash2D(int seed, float x, float y, float freq)
+    {
+        x *= freq; y *= freq;
+        int ix = (int)MathF.Floor(x), iy = (int)MathF.Floor(y);
+        float tx = x - ix, ty = y - iy;
+        tx = tx * tx * (3f - 2f * tx);
+        ty = ty * ty * (3f - 2f * ty);
+        float v00 = SeededRandom.Hash1(seed, ix     + iy     * 1619);
+        float v10 = SeededRandom.Hash1(seed, ix + 1 + iy     * 1619);
+        float v01 = SeededRandom.Hash1(seed, ix     + (iy+1) * 1619);
+        float v11 = SeededRandom.Hash1(seed, ix + 1 + (iy+1) * 1619);
+        return v00 + (v10 - v00) * tx + (v01 - v00) * ty + (v00 - v10 - v01 + v11) * tx * ty;
+    }
+
+    private static ColorRgba ApplyStains(ColorRgba color, int unitId, int seed, int wx, int wy, float weathering)
+    {
+        if (weathering < 0.05f) return color;
+
+        // Per-brick stain chance — more bricks stained on weathered walls
+        float roll      = SeededRandom.Hash1(seed ^ unchecked((int)0x574A1B3D), unitId);
+        float threshold = 1f - weathering * 0.65f;   // at weathering=1, ~65% of bricks have stains
+        if (roll < threshold) return color;
+
+        float strength = (roll - threshold) / (1f - threshold) * weathering;
+
+        // Low-frequency noise shapes the stain organically within the brick
+        float ox = SeededRandom.Hash1(seed ^ unchecked((int)0xC0C0C0C0), unitId + 50) * 997f;
+        float oy = SeededRandom.Hash1(seed ^ unchecked((int)0xF0F0F0F0), unitId + 51) * 997f;
+        float n  = SmoothHash2D(seed ^ unchecked((int)0x1A2B3C4D), wx + ox, wy + oy, 0.12f);
+
+        float t = Math.Max(0f, n - 0.35f) / 0.65f * strength;
+        if (t < 0.01f) return color;
+
+        return ColorMath.AdjustHsl(color, 0f, -t * 0.08f, -t * 0.18f);   // desaturate + darken
     }
 
     // ── Bond dispatch ─────────────────────────────────────────────────────────
