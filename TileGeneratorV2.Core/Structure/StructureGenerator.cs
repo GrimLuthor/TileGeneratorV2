@@ -27,10 +27,11 @@ public class StructureGenerator
                 if (m.TopLight != 0f)
                     color = ColorMath.AdjustHsl(color, 0f, 0f, m.TopLight);
                 color = ApplySurfaceTexture(color, m.UnitId, p.Seed, wx, wy);
-                color = ApplyStains(color, m.UnitId, p.Seed, wx, wy, p.WeatheringStrength);
+                color = ApplyStains(color, m.UnitId, p.Seed, wx, wy, p.EffectiveWeathering);
+                color = ApplyErosion(color, m, p.Seed, wx, wy, p.ErosionStrength);
             }
             else
-                color = ApplyGroove(color, m, wx, wy, p.Seed, p.WeatheringStrength);
+                color = ApplyGroove(color, m, wx, wy, p.Seed, p.EffectiveWeathering);
             buffer[px, py] = color;
         }
     }
@@ -123,6 +124,25 @@ public class StructureGenerator
         return ColorMath.AdjustHsl(color, 0f, -t * 0.08f, -t * 0.18f);   // desaturate + darken
     }
 
+    private static ColorRgba ApplyErosion(ColorRgba color, MortarSample m, int seed, int wx, int wy, float erosionStrength)
+    {
+        if (erosionStrength < 0.01f) return color;
+
+        float erosionRange = 1f + erosionStrength * 2.5f;   // 1–3.5 px depth depending on preset
+        if (m.DistToEdge >= erosionRange) return color;
+
+        // Coherent chip noise — smooth patches look like real chips, not static
+        float chipNoise = SmoothHash2D(seed ^ unchecked((int)0xE4051095), wx, wy, 0.45f);
+
+        // Pixels right at the edge chip more easily; higher erosion lowers the threshold
+        float edgeFactor = 1f - m.DistToEdge / erosionRange;
+        float threshold  = 0.62f - edgeFactor * 0.25f - erosionStrength * 0.15f;
+        if (chipNoise < threshold) return color;
+
+        float t = (chipNoise - threshold) / (1f - threshold) * edgeFactor * erosionStrength;
+        return ColorMath.AdjustHsl(color, 0f, -t * 0.12f, -t * 0.30f);
+    }
+
     // ── Bond dispatch ─────────────────────────────────────────────────────────
 
     private static MortarSample SampleMortar(int wx, int wy, StructureParameters p) => p.Bond switch
@@ -189,7 +209,7 @@ public class StructureGenerator
         float botGrad    = Math.Max(0f, 1f - (float)(H - 1 - localY) / lightRange);
         float topLight   = topGrad * 0.12f - botGrad * 0.06f;
 
-        if (mHalf <= 0f) return new MortarSample(0f, 0f, unitId, topLight);
+        if (mHalf <= 0f) return new MortarSample(0f, 0f, unitId, topLight, 999f);
 
         float dX = Math.Min(localX, W - 1 - localX);
         float dY = Math.Min(localY, H - 1 - localY);
@@ -206,9 +226,10 @@ public class StructureGenerator
             shadow = localY < H / 2 ? 1f : -0.5f;             // top = cast shadow, bottom = slight light
         }
 
-        float t     = Math.Clamp(d / mHalf, 0f, 1f);
-        float depth = 1f - t * t * (3f - 2f * t);             // smoothstep: 1 at edge → 0 at interior
-        return new MortarSample(Math.Max(depth, 0f), shadow, unitId, topLight);
+        float t           = Math.Clamp(d / mHalf, 0f, 1f);
+        float depth       = 1f - t * t * (3f - 2f * t);       // smoothstep: 1 at edge → 0 at interior
+        float distToEdge  = Math.Max(0f, d - mHalf);           // 0 at stone/mortar boundary, grows inward
+        return new MortarSample(Math.Max(depth, 0f), shadow, unitId, topLight, distToEdge);
     }
 
     // ── Ashlar width generation ───────────────────────────────────────────────
@@ -251,16 +272,17 @@ public class StructureGenerator
 
     private readonly struct MortarSample
     {
-        public readonly float Depth;    // 0 = stone, 1 = groove centre
-        public readonly float Shadow;   // +1 = cast shadow (top edge), -0.5 = uplighting, 0 = vertical
-        public readonly int   UnitId;   // hashed brick identifier for per-brick variation
-        public readonly float TopLight; // lightness shift: + = top-edge highlight, - = bottom-edge shadow
+        public readonly float Depth;       // 0 = stone, 1 = groove centre
+        public readonly float Shadow;      // +1 = cast shadow (top edge), -0.5 = uplighting, 0 = vertical
+        public readonly int   UnitId;      // hashed brick identifier for per-brick variation
+        public readonly float TopLight;    // lightness shift: + = top-edge highlight, - = bottom-edge shadow
+        public readonly float DistToEdge;  // stone pixels: px from stone/mortar boundary (0 = right at edge)
 
         public bool IsStone => Depth <= 0f;
 
-        public MortarSample(float depth, float shadow, int unitId, float topLight = 0f)
+        public MortarSample(float depth, float shadow, int unitId, float topLight = 0f, float distToEdge = 999f)
         {
-            Depth = depth; Shadow = shadow; UnitId = unitId; TopLight = topLight;
+            Depth = depth; Shadow = shadow; UnitId = unitId; TopLight = topLight; DistToEdge = distToEdge;
         }
 
         public static readonly MortarSample Stone = default;
