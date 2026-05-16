@@ -234,16 +234,20 @@
         <Grid Grid.Column="1">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
+            <!-- Wall previews -->
             <TextBlock Grid.Row="0" Foreground="#555" FontSize="10" Margin="0,0,0,6">
+                <Run Foreground="#6AABFF" Text="WALL  "/>
                 <Run Text="SINGLE TILE  4×zoom"/>
                 <Run Text="                        "/>
                 <Run Text="TILING PREVIEW  4×4 tiles · 2×zoom"/>
             </TextBlock>
 
-            <Grid Grid.Row="1">
+            <Grid Grid.Row="1" Margin="0,0,0,16">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
@@ -257,6 +261,32 @@
                 <Border Grid.Column="1" Margin="16,0,0,0" BorderBrush="#333" BorderThickness="1"
                         VerticalAlignment="Top" HorizontalAlignment="Left">
                     <Image x:Name="TilingPreviewImage" Width="256" Height="256"
+                           RenderOptions.BitmapScalingMode="NearestNeighbor" Stretch="None"/>
+                </Border>
+            </Grid>
+
+            <!-- Floor previews -->
+            <TextBlock Grid.Row="2" Foreground="#555" FontSize="10" Margin="0,0,0,6">
+                <Run Foreground="#6AABFF" Text="FLOOR  "/>
+                <Run Text="SINGLE TILE  4×zoom"/>
+                <Run Text="                        "/>
+                <Run Text="TILING PREVIEW  4×4 tiles · 2×zoom"/>
+            </TextBlock>
+
+            <Grid Grid.Row="3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" BorderBrush="#333" BorderThickness="1" VerticalAlignment="Top">
+                    <Image x:Name="FloorSingleTileImage" Width="128" Height="128"
+                           RenderOptions.BitmapScalingMode="NearestNeighbor" Stretch="None"/>
+                </Border>
+
+                <Border Grid.Column="1" Margin="16,0,0,0" BorderBrush="#333" BorderThickness="1"
+                        VerticalAlignment="Top" HorizontalAlignment="Left">
+                    <Image x:Name="FloorTilingPreviewImage" Width="256" Height="256"
                            RenderOptions.BitmapScalingMode="NearestNeighbor" Stretch="None"/>
                 </Border>
             </Grid>

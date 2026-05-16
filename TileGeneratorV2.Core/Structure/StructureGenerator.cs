@@ -11,6 +11,12 @@ public class StructureGenerator
 {
     public void Apply(PixelBuffer buffer, int worldTileX, int worldTileY, StructureParameters p)
     {
+        if (p.Bond is BondType.Flagstone or BondType.Cobblestone)
+        {
+            ApplyFlagstone(buffer, worldTileX, worldTileY, p);
+            return;
+        }
+
         int size    = PixelBuffer.Size;
         int offsetX = worldTileX * size;
         int offsetY = worldTileY * size;
@@ -20,50 +26,123 @@ public class StructureGenerator
         {
             int wx = offsetX + px;
             int wy = offsetY + py;
-            var m     = SampleMortar(wx, wy, p);
-            var color = ApplyBrickJitter(buffer[px, py], m.UnitId, p.Seed);
-            if (m.IsStone)
-            {
-                if (m.TopLight != 0f)
-                    color = ColorMath.AdjustHsl(color, 0f, 0f, m.TopLight);
-                color = ApplySurfaceTexture(color, m.UnitId, p.Seed, wx, wy);
-                color = ApplyStains(color, m.UnitId, p.Seed, wx, wy, p.EffectiveWeathering);
-                color = ApplyErosion(color, m, p.Seed, wx, wy, p.ErosionStrength);
-            }
-            else
-                color = ApplyGroove(color, m, wx, wy, p.Seed, p.EffectiveWeathering);
-            buffer[px, py] = color;
+            var m = SampleMortar(wx, wy, p);
+            buffer[px, py] = ApplyPixelEffects(buffer[px, py], m, wx, wy, p);
         }
+    }
+
+    private static void ApplyFlagstone(PixelBuffer buffer, int worldTileX, int worldTileY, StructureParameters p)
+    {
+        int size    = PixelBuffer.Size;
+        int offsetX = worldTileX * size;
+        int offsetY = worldTileY * size;
+
+        int minH = Math.Max(4, p.BrickHeight / 2);
+        int maxH = p.BrickHeight + p.BrickHeight / 2;
+
+        // Walk rows from Y=0 until we reach this tile's top edge
+        int row = 0, rowStartY = 0;
+        {
+            int h = GetFlagstoneRowHeight(p.Seed, row, minH, maxH);
+            while (rowStartY + h <= offsetY)
+            {
+                rowStartY += h;
+                row++;
+                h = GetFlagstoneRowHeight(p.Seed, row, minH, maxH);
+            }
+        }
+
+        List<int>? widths = null;
+        int currentRow = -1;
+
+        for (int py = 0; py < size; py++)
+        {
+            int wy = offsetY + py;
+
+            // Advance row if needed — at most a few steps per tile
+            int rowH = GetFlagstoneRowHeight(p.Seed, row, minH, maxH);
+            while (rowStartY + rowH <= wy)
+            {
+                rowStartY += rowH;
+                row++;
+                rowH = GetFlagstoneRowHeight(p.Seed, row, minH, maxH);
+            }
+
+            // Recompute column widths only when row changes
+            if (row != currentRow)
+            {
+                widths      = GetAshlarWidths(row, p, size);
+                currentRow  = row;
+            }
+
+            int localY = wy - rowStartY;
+
+            for (int px = 0; px < size; px++)
+            {
+                int wx      = offsetX + px;
+                int localXt = FloorMod(wx, size);
+
+                MortarSample m = MortarSample.Stone;
+                int cumX = 0;
+                for (int i = 0; i < widths!.Count; i++)
+                {
+                    int w = widths[i];
+                    if (localXt < cumX + w)
+                    {
+                        m = MortarValue(localXt - cumX, localY, w, rowH, p.MortarWidth * 0.5f, HashInts(row, i));
+                        break;
+                    }
+                    cumX += w;
+                }
+
+                buffer[px, py] = ApplyPixelEffects(buffer[px, py], m, wx, wy, p);
+            }
+        }
+    }
+
+    private static ColorRgba ApplyPixelEffects(ColorRgba color, MortarSample m, int wx, int wy, StructureParameters p)
+    {
+        color = ApplyBrickJitter(color, m.UnitId, p.Seed);
+        if (m.IsStone)
+        {
+            if (m.TopLight != 0f && !p.IsFloor)
+                color = ColorMath.AdjustHsl(color, 0f, 0f, m.TopLight);
+            color = ApplySurfaceTexture(color, m.UnitId, p.Seed, wx, wy);
+            color = ApplyStains(color, m.UnitId, p.Seed, wx, wy, p.EffectiveWeathering);
+            color = ApplyErosion(color, m, p.Seed, wx, wy, p.ErosionStrength);
+        }
+        else
+            color = ApplyGroove(color, m, wx, wy, p.Seed, p.EffectiveWeathering, p.IsFloor);
+        return color;
     }
 
     // ── Groove rendering ──────────────────────────────────────────────────────
 
-    private static ColorRgba ApplyGroove(ColorRgba pixel, MortarSample m, int wx, int wy, int seed, float weathering = 0f)
+    private static ColorRgba ApplyGroove(ColorRgba pixel, MortarSample m, int wx, int wy, int seed, float weathering = 0f, bool isFloor = false)
     {
-        // Per-brick variation: ±20% depth multiplier so each brick's groove reads slightly different
-        float unitVar = (SeededRandom.Hash1(seed ^ unchecked(m.UnitId * 1234567), m.UnitId) - 0.5f) * 0.40f;
-
-        // Pixel-level micro-imperfection: makes groove edges look hand-cut rather than perfect
+        float unitVar  = (SeededRandom.Hash1(seed ^ unchecked(m.UnitId * 1234567), m.UnitId) - 0.5f) * 0.40f;
         float pixelVar = (SeededRandom.Hash1(unchecked(wx * 1619 + wy * 31337), seed) - 0.5f) * 0.16f;
 
-        // Shadow gradient: top edge of horizontal joints is darkest (cast shadow from brick above),
-        // bottom edge gets a little uplighting. Vertical joints are neutral.
-        float t = m.Depth * (1f + unitVar) * (1f + m.Shadow * 0.40f) + pixelVar * m.Depth;
+        // Floor grooves skip directional shadow — no "above" light source on a flat surface
+        float shadow = isFloor ? 0f : m.Shadow;
+        float t = m.Depth * (1f + unitVar) * (1f + shadow * 0.40f) + pixelVar * m.Depth;
         t = Math.Clamp(t, 0f, 1f);
 
-        // Per-brick darkness multiplier: 0.3–1.0 so some bricks have grooves as dark as now,
-        // others go considerably darker (deep crevices vs shallow scratches).
-        float darkVar = 0.30f + SeededRandom.Hash1(unchecked(seed ^ m.UnitId * 7654321), m.UnitId + 1) * 0.70f;
+        // Floor grooves are subtler: narrower dark range (0.55–1.0 vs 0.30–1.0 for walls)
+        float darkRaw = SeededRandom.Hash1(unchecked(seed ^ m.UnitId * 7654321), m.UnitId + 1);
+        float darkVar = isFloor
+            ? 0.55f + darkRaw * 0.45f
+            : 0.30f + darkRaw * 0.70f;
 
-        // Derive groove colour from the current pixel's hue, shifted to a much darker lightness.
-        // If the pixel is already dark, groove goes slightly lighter (remains visible as a crease).
         ColorMath.RgbToHsl(pixel, out float h, out float s, out float l);
+
+        // Floor grooves are lighter relative to the slab surface (0.45 vs 0.20 for walls)
+        float grooveMultiplier = isFloor ? 0.45f : 0.20f;
         float grooveLit = l > 0.30f
-            ? Math.Max(l * 0.20f * darkVar, 0.02f)   // light material → very dark groove
-            : Math.Min(l + 0.10f, 0.35f);             // dark material → slightly lighter groove
+            ? Math.Max(l * grooveMultiplier * darkVar, 0.02f)
+            : Math.Min(l + 0.10f, 0.35f);
         var grooveColor = ColorMath.HslToRgb(h, Math.Max(s - 0.15f, 0f), grooveLit);
 
-        // Groove dirt: grime packs into deep joints on weathered walls
         if (weathering > 0f)
             grooveColor = ColorMath.AdjustHsl(grooveColor, 0f, weathering * 0.06f, -weathering * 0.08f * m.Depth);
 
@@ -147,10 +226,13 @@ public class StructureGenerator
 
     private static MortarSample SampleMortar(int wx, int wy, StructureParameters p) => p.Bond switch
     {
-        BondType.Running => RunningBond(wx, wy, p),
-        BondType.Stack   => StackBond(wx, wy, p),
-        BondType.Ashlar  => AshlarBond(wx, wy, p),
-        _                => MortarSample.Stone,
+        BondType.Running    => RunningBond(wx, wy, p),
+        BondType.Stack      => StackBond(wx, wy, p),
+        BondType.Ashlar     => AshlarBond(wx, wy, p),
+        BondType.StoneSlab  => RunningBond(wx, wy, p),   // large squarish units, same algorithm
+        BondType.BigSlab    => BigSlabBond(wx, wy, p),
+        BondType.SquareGrid => SquareGridBond(wx, wy, p),
+        _                   => MortarSample.Stone,
     };
 
     // ── Running bond ──────────────────────────────────────────────────────────
@@ -230,6 +312,36 @@ public class StructureGenerator
         float depth       = 1f - t * t * (3f - 2f * t);       // smoothstep: 1 at edge → 0 at interior
         float distToEdge  = Math.Max(0f, d - mHalf);           // 0 at stone/mortar boundary, grows inward
         return new MortarSample(Math.Max(depth, 0f), shadow, unitId, topLight, distToEdge);
+    }
+
+    // ── Big slab ──────────────────────────────────────────────────────────────
+
+    private static MortarSample BigSlabBond(int wx, int wy, StructureParameters p)
+    {
+        int tileSize = PixelBuffer.Size;
+        int localX   = FloorMod(wx, tileSize);
+        int localY   = FloorMod(wy, tileSize);
+        int unitId   = HashInts(FloorDiv(wx, tileSize), FloorDiv(wy, tileSize));
+        return MortarValue(localX, localY, tileSize, tileSize, p.MortarWidth * 0.5f, unitId);
+    }
+
+    // ── Square grid ───────────────────────────────────────────────────────────
+
+    private static MortarSample SquareGridBond(int wx, int wy, StructureParameters p)
+    {
+        int sz     = p.BrickWidth;   // square size (8 or 16), same as BrickHeight
+        int localX = FloorMod(wx, sz);
+        int localY = FloorMod(wy, sz);
+        int unitId = HashInts(FloorDiv(wx, sz), FloorDiv(wy, sz));
+        return MortarValue(localX, localY, sz, sz, p.MortarWidth * 0.5f, unitId);
+    }
+
+    // ── Flagstone row heights ─────────────────────────────────────────────────
+
+    private static int GetFlagstoneRowHeight(int seed, int row, int minH, int maxH)
+    {
+        float h = SeededRandom.Hash1(seed ^ unchecked((int)0x4F4A1234), row);
+        return minH + (int)(h * (maxH - minH));
     }
 
     // ── Ashlar width generation ───────────────────────────────────────────────

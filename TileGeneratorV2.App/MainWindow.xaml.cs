@@ -125,35 +125,55 @@ public partial class MainWindow : Window
             ? null
             : MaterialParameters.FromSeed(seed, (MaterialType)MaterialCombo.SelectedIndex);
 
-        var structParams = StructureParameters.FromSeed(seed);
-        var matGen       = new MaterialGenerator();
-        var structGen    = new StructureGenerator();
+        // Floor uses a different material seed so noise pattern differs, same palette
+        int floorSeed = seed ^ unchecked((int)0x5A5A5A5A);
+        MaterialParameters? floorMatParams = MaterialCombo.SelectedIndex == 0
+            ? null
+            : MaterialParameters.FromSeed(floorSeed, (MaterialType)MaterialCombo.SelectedIndex);
+
+        var wallParams  = StructureParameters.FromSeed(seed);
+        var floorParams = StructureParameters.FromSeedFloor(seed);
+        var matGen      = new MaterialGenerator();
+        var structGen   = new StructureGenerator();
 
         var sw = Stopwatch.StartNew();
 
-        // Single tile at world position (0, 0)
-        var single = matGen.Generate(seed, palette, matParams);
-        structGen.Apply(single, 0, 0, structParams);
-        SingleTileImage.Source = BitmapHelper.ToBitmapSource(single, scale: 4);
+        // ── Wall previews ──
+        var wallSingle = matGen.Generate(seed, palette, matParams);
+        structGen.Apply(wallSingle, 0, 0, wallParams);
+        SingleTileImage.Source = BitmapHelper.ToBitmapSource(wallSingle, scale: 4);
 
-        // 4×4 tiling preview — each tile generated at its correct world position
-        // so brick patterns continue seamlessly across tile boundaries
-        var tiles = new PixelBuffer[4, 4];
+        var wallTiles = new PixelBuffer[4, 4];
         for (int ty = 0; ty < 4; ty++)
         for (int tx = 0; tx < 4; tx++)
         {
-            tiles[tx, ty] = matGen.Generate(seed, palette, matParams);
-            structGen.Apply(tiles[tx, ty], tx, ty, structParams);
+            wallTiles[tx, ty] = matGen.Generate(seed, palette, matParams);
+            structGen.Apply(wallTiles[tx, ty], tx, ty, wallParams);
         }
-        TilingPreviewImage.Source = BitmapHelper.ToTiledBitmapSource(tiles, scale: 2);
+        TilingPreviewImage.Source = BitmapHelper.ToTiledBitmapSource(wallTiles, scale: 2);
+
+        // ── Floor previews ──
+        var floorSingle = matGen.Generate(floorSeed, palette, floorMatParams);
+        structGen.Apply(floorSingle, 0, 0, floorParams);
+        FloorSingleTileImage.Source = BitmapHelper.ToBitmapSource(floorSingle, scale: 4);
+
+        var floorTiles = new PixelBuffer[4, 4];
+        for (int ty = 0; ty < 4; ty++)
+        for (int tx = 0; tx < 4; tx++)
+        {
+            floorTiles[tx, ty] = matGen.Generate(floorSeed, palette, floorMatParams);
+            structGen.Apply(floorTiles[tx, ty], tx, ty, floorParams);
+        }
+        FloorTilingPreviewImage.Source = BitmapHelper.ToTiledBitmapSource(floorTiles, scale: 2);
 
         sw.Stop();
 
-        var mp = matParams ?? MaterialParameters.FromSeed(seed);
-        var sp = structParams;
+        var mp  = matParams ?? MaterialParameters.FromSeed(seed);
+        var wp  = wallParams;
+        var fp  = floorParams;
         StatusLabel.Text =
-            $"{mp.Type}  freq={mp.BaseFrequency:F1}  oct={mp.Octaves}  curve={mp.Curve}\n" +
-            $"{sp.Bond}  W={sp.BrickWidth}  H={sp.BrickHeight}  M={sp.MortarWidth:F1}\n" +
+            $"Wall:  {mp.Type}  {wp.Bond}  W={wp.BrickWidth}  H={wp.BrickHeight}  M={wp.MortarWidth:F1}\n" +
+            $"Floor: {fp.Bond}  W={fp.BrickWidth}  H={fp.BrickHeight}  M={fp.MortarWidth:F1}\n" +
             $"Generated in {sw.ElapsedMilliseconds}ms";
     }
 
