@@ -12,16 +12,16 @@ WPF/C# procedural tile texture generator. Produces ~106 32×32 tiles (47 floor +
 
 ## 4-Stage Pipeline
 
-1. **MATERIAL** — tileable noise-based surface texture (Voronoi, Perlin, Marble, etc.)
-2. **STRUCTURE** — seed-driven bond pattern → unit ID map (int[32,32]) + mortar mask (float[32,32])
-3. **VARIATION + WEATHERING** — per-unit color jitter, surface texture, top-lighting, groove dirt, stains, erosion
-4. **CONTEXT** — edge/neighbor-aware borders and shadows, touching only pixels near tile edges
+1. **MATERIAL** — tileable noise-based surface texture (Voronoi, Perlin, Marble, etc.). Floor and wall use same color palette, different seeds/noise types.
+2. **STRUCTURE** — seed-driven bond pattern → unit ID map (int[32,32]) + mortar mask (float[32,32]). Wall bonds: Running, Stack, Ashlar. Floor bonds: StoneSlab, Flagstone, Cobblestone.
+3. **VARIATION + WEATHERING** — per-unit color jitter, surface texture, top-lighting (wall only), groove dirt, stains, erosion. Floor weathering pools/creeps; wall weathering drips.
+4. **CONTEXT** — the only stage that knows about neighbors. Adds structural features based on which neighbors are wall/floor/void. Floor: baseboard grooves at non-floor edges with proper diagonal corner joins. Cap: black base + fascia strips at open-space edges. Wall face: minimal (top/bottom row lines). NEVER full-tile gradients.
 
 ## Key Numbers
 
 - Tile size: 32×32 px
 - Floor variants: 47 (blob autotile)
-- Cap variants: 47 (blob autotile, dropoff-shadow treatment)
+- Cap variants: 47 (blob autotile, black + fascia strips at exposed edges)
 - Wall face: 12 (3 rows × 4 horizontal variants)
 - Floor allowed unit widths/heights (for self-tileability): 4, 8, 16, 32
 
