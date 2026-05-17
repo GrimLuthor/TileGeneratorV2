@@ -10,7 +10,9 @@
       "PowerShell(Get-Process *)",
       "PowerShell(Start-Process \"TileGeneratorV2.App\\\\bin\\\\Release\\\\net9.0-windows\\\\TileGeneratorV2.App.exe\")",
       "Bash(git rm *)",
-      "Bash(dotnet build *)"
+      "Bash(dotnet build *)",
+      "Bash(Select-Object -Last 15)",
+      "PowerShell(dotnet build *)"
     ]
   }
 }

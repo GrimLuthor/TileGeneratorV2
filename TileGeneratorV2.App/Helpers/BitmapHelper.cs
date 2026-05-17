@@ -105,4 +105,44 @@ public static class BitmapHelper
 
     // Converts ColorRgba to a WPF Color for UI elements.
     public static Color ToWpfColor(ColorRgba c) => Color.FromRgb(c.R, c.G, c.B);
+
+    // Arranges a list of tiles into a grid composite bitmap.
+    // gap px of dark background between cells; tiles rendered at 'scale' px per source pixel.
+    public static BitmapSource ToGridBitmapSource(IReadOnlyList<PixelBuffer> tiles, int columns, int scale, int gap = 2)
+    {
+        int rows   = (tiles.Count + columns - 1) / columns;
+        int cellW  = PixelBuffer.Size * scale + gap;
+        int cellH  = PixelBuffer.Size * scale + gap;
+        int dstW   = gap + columns * cellW;
+        int dstH   = gap + rows    * cellH;
+        int stride = dstW * 4;
+        var pixels = new byte[dstH * stride];
+
+        // Dark background (#1A1A1A)
+        for (int i = 0; i < pixels.Length; i += 4)
+        { pixels[i] = 0x1A; pixels[i + 1] = 0x1A; pixels[i + 2] = 0x1A; pixels[i + 3] = 0xFF; }
+
+        for (int idx = 0; idx < tiles.Count; idx++)
+        {
+            int col     = idx % columns;
+            int row     = idx / columns;
+            int originX = gap + col * cellW;
+            int originY = gap + row * cellH;
+            var tile    = tiles[idx];
+
+            int tilePixels = PixelBuffer.Size * scale;
+            for (int ty = 0; ty < tilePixels; ty++)
+            for (int tx = 0; tx < tilePixels; tx++)
+            {
+                var c  = tile[tx / scale, ty / scale];
+                int pi = ((originY + ty) * dstW + (originX + tx)) * 4;
+                pixels[pi]     = c.B;
+                pixels[pi + 1] = c.G;
+                pixels[pi + 2] = c.R;
+                pixels[pi + 3] = c.A;
+            }
+        }
+
+        return BitmapSource.Create(dstW, dstH, 96, 96, PixelFormats.Bgra32, null, pixels, stride);
+    }
 }

@@ -1,3 +1,4 @@
+using System.Linq;
 using TileGeneratorV2.Core.Util;
 
 namespace TileGeneratorV2.Core.Structure;
@@ -42,18 +43,41 @@ public class StructureParameters
         Seed               = seed;
     }
 
+    // Brick dims are restricted to {2^k} ∪ {3·2^k} so their odd part — the brick
+    // pattern's tile-cycle — is always 1 or 3, keeping the autotile set bounded.
+    private static readonly int[] BrickHeights = { 4, 6, 8, 12, 16 };
+    private static readonly int[] BrickWidths  = { 4, 6, 8, 12, 16, 24 };
+
     public static StructureParameters FromSeed(int seed, WeatheringPreset preset = WeatheringPreset.Weathered)
     {
         var rng = new SeededRandom(seed ^ unchecked((int)0x577EC700));
 
-        var   bond       = (BondType)rng.NextInt(0, 3);                         // wall bonds only
-        int   brickH     = rng.NextInt(4, 23);                                  // 4–22 px
-        int   brickW     = rng.NextInt(brickH, Math.Min(brickH * 3 + 1, 30));  // H to 3H, ≤ 30
+        var bond   = (BondType)rng.NextInt(0, 3);                  // wall bonds only
+        int brickH = BrickHeights[rng.NextInt(0, BrickHeights.Length)];
+
+        // width: brick-shaped — between H and 3H, from the allowed set
+        var wOpts  = BrickWidths.Where(w => w >= brickH && w <= brickH * 3).ToArray();
+        int brickW = wOpts[rng.NextInt(0, wOpts.Length)];
+
         float mortarW    = rng.NextFloat(1.0f, 2.8f);
         float weathering = rng.NextFloat(0f, 1f);
 
         return new StructureParameters(bond, brickW, brickH, mortarW, weathering, preset, seed);
     }
+
+    /// <summary>Odd part of n — n with every factor of 2 removed.</summary>
+    public static int OddPart(int n)
+    {
+        if (n < 1) return 1;
+        while ((n & 1) == 0) n >>= 1;
+        return n;
+    }
+
+    /// <summary>
+    /// Cap-atlas tile cycle for this wall. Caps render the brick-width pattern along
+    /// every rim, so a cap realigns every CapCycle tiles on both axes (1 = self-tiling, 3).
+    /// </summary>
+    public int CapCycle => OddPart(BrickWidth);
 
     public static StructureParameters FromSeedFloor(int seed, WeatheringPreset preset = WeatheringPreset.Weathered)
     {

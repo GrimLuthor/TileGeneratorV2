@@ -9,6 +9,32 @@ namespace TileGeneratorV2.Core.Structure;
 /// </summary>
 public class StructureGenerator
 {
+    /// <summary>
+    /// Applies one cap-fascia pixel in world coordinates (wx, wy).
+    /// Same as wall-face structure but without top-edge highlighting — cap is viewed from above.
+    /// wx = world x (E-W position), wy = wall-face row depth (0 = outer edge / bed joint).
+    /// </summary>
+    public static ColorRgba ApplyCapFasciaPixel(ColorRgba material, int wx, int wy, StructureParameters p)
+    {
+        var m = SampleMortar(wx, wy, p);
+        material = ApplyBrickJitter(material, m.UnitId, p.Seed);
+        if (m.IsStone)
+        {
+            material = ApplySurfaceTexture(material, m.UnitId, p.Seed, wx, wy);
+            material = ApplyStains(material, m.UnitId, p.Seed, wx, wy, p.EffectiveWeathering);
+            material = ApplyErosion(material, m, p.Seed, wx, wy, p.ErosionStrength);
+        }
+        else
+        {
+            material = ApplyGroove(material, m, wx, wy, p.Seed, p.EffectiveWeathering, isFloor: false);
+            // Cap mortar sits against the black tile interior; wall-face groove darkness (3–10% L)
+            // is indistinguishable from black. Clamp so mortar joints remain readable.
+            ColorMath.RgbToHsl(material, out float h, out float s, out float l);
+            if (l < 0.12f) material = ColorMath.HslToRgb(h, s, 0.12f);
+        }
+        return material;
+    }
+
     public void Apply(PixelBuffer buffer, int worldTileX, int worldTileY, StructureParameters p)
     {
         if (p.Bond is BondType.Flagstone or BondType.Cobblestone)

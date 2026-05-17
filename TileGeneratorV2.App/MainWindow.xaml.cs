@@ -1,10 +1,17 @@
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using Microsoft.Win32;
 using TileGeneratorV2.App.Helpers;
+using TileGeneratorV2.Core.Context;
 using TileGeneratorV2.Core.Materials;
 using TileGeneratorV2.Core.Structure;
+using TileGeneratorV2.Core.Tileset;
 using TileGeneratorV2.Core.Util;
 
 namespace TileGeneratorV2.App;
@@ -42,6 +49,75 @@ public partial class MainWindow : Window
         ApplyRandomColors();
         try { Generate(); }
         catch (Exception ex) { StatusLabel.Text = $"Error: {ex.Message}"; }
+    }
+
+    private void ExportTileset_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var dlg = new SaveFileDialog
+            {
+                Title    = "Export tileset — choose manifest location",
+                FileName = "manifest.json",
+                Filter   = "Tileset manifest (*.json)|*.json",
+            };
+            if (dlg.ShowDialog() != true) return;
+
+            string dir = Path.GetDirectoryName(dlg.FileName)!;
+
+            int seed = int.TryParse(SeedBox.Text, out int s) ? s : 0;
+            var palette = new ColorPalette(
+                ParseDegrees(Hue1Box.Text,  30f) / 360f,
+                ParseDegrees(Hue2Box.Text,  26f) / 360f,
+                ParsePercent(SatBox.Text,   48f) / 100f,
+                ParsePercent(LightBox.Text, 62f) / 100f,
+                ParsePercent(DarkBox.Text,  14f) / 100f);
+            MaterialParameters? matParams = MaterialCombo.SelectedIndex == 0
+                ? null
+                : MaterialParameters.FromSeed(seed, (MaterialType)MaterialCombo.SelectedIndex);
+            var wallParams = StructureParameters.FromSeed(seed);
+
+            var cap  = CapTilesetBuilder.Build(seed, palette, matParams, wallParams);
+            var wall = WallTilesetBuilder.Build(seed, palette, matParams, wallParams);
+
+            var manifest = new TilesetManifest
+            {
+                Seed = seed,
+                Cap  = WriteAtlas(cap,  Path.Combine(dir, "cap.png"),  "cap.png"),
+                Wall = WriteAtlas(wall, Path.Combine(dir, "wall.png"), "wall.png"),
+            };
+            File.WriteAllText(dlg.FileName, JsonSerializer.Serialize(manifest, new JsonSerializerOptions
+            {
+                WriteIndented        = true,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            }));
+
+            StatusLabel.Text = $"Exported cap ({cap.Tiles.Count}) + wall ({wall.Tiles.Count}) tiles + manifest to {dir}";
+        }
+        catch (Exception ex) { StatusLabel.Text = $"Export error: {ex.Message}"; }
+    }
+
+    // Packs a tile grid into a tight atlas PNG and returns its manifest entry.
+    // Autotile classes lay each variant on its own row (atlasColumns = cycleX·cycleY);
+    // surface classes use a plain cycleX-wide grid.
+    private static TilesetManifest.TileClass WriteAtlas(TileGrid grid, string path, string atlasName)
+    {
+        int cols  = grid.Variants > 1 ? grid.CycleX * grid.CycleY : grid.CycleX;
+        var atlas = BitmapHelper.ToGridBitmapSource(grid.Tiles, columns: cols, scale: 1, gap: 0);
+        using (var fs = File.Create(path))
+        {
+            var enc = new PngBitmapEncoder();
+            enc.Frames.Add(BitmapFrame.Create(atlas));
+            enc.Save(fs);
+        }
+        return new TilesetManifest.TileClass
+        {
+            Atlas        = atlasName,
+            Variants     = grid.Variants,
+            CycleX       = grid.CycleX,
+            CycleY       = grid.CycleY,
+            AtlasColumns = cols,
+        };
     }
 
     private void ApplyRandomColors()
@@ -143,28 +219,37 @@ public partial class MainWindow : Window
         structGen.Apply(wallSingle, 0, 0, wallParams);
         SingleTileImage.Source = BitmapHelper.ToBitmapSource(wallSingle, scale: 4);
 
-        var wallTiles = new PixelBuffer[4, 4];
-        for (int ty = 0; ty < 4; ty++)
-        for (int tx = 0; tx < 4; tx++)
+        var wallTiles = new PixelBuffer[3, 3];
+        for (int ty = 0; ty < 3; ty++)
+        for (int tx = 0; tx < 3; tx++)
         {
             wallTiles[tx, ty] = matGen.Generate(seed, palette, matParams);
             structGen.Apply(wallTiles[tx, ty], tx, ty, wallParams);
         }
         TilingPreviewImage.Source = BitmapHelper.ToTiledBitmapSource(wallTiles, scale: 2);
 
+        int wcx = StructureParameters.OddPart(wallParams.BrickWidth);
+        int wcy = StructureParameters.OddPart(wallParams.BrickHeight);
+        WallTilingLabel.Text = wcx == 1 && wcy == 1
+            ? "TILING PREVIEW  3×3 tiles · self-tiling"
+            : $"TILING PREVIEW  3×3 tiles · cycle {wcx}×{wcy}";
+
         // ── Floor previews ──
         var floorSingle = matGen.Generate(floorSeed, palette, floorMatParams);
         structGen.Apply(floorSingle, 0, 0, floorParams);
         FloorSingleTileImage.Source = BitmapHelper.ToBitmapSource(floorSingle, scale: 4);
 
-        var floorTiles = new PixelBuffer[4, 4];
-        for (int ty = 0; ty < 4; ty++)
-        for (int tx = 0; tx < 4; tx++)
+        var floorTiles = new PixelBuffer[3, 3];
+        for (int ty = 0; ty < 3; ty++)
+        for (int tx = 0; tx < 3; tx++)
         {
             floorTiles[tx, ty] = matGen.Generate(floorSeed, palette, floorMatParams);
             structGen.Apply(floorTiles[tx, ty], tx, ty, floorParams);
         }
         FloorTilingPreviewImage.Source = BitmapHelper.ToTiledBitmapSource(floorTiles, scale: 2);
+
+        // ── Cap previews ──
+        GenerateCap(seed, palette, matParams, wallParams);
 
         sw.Stop();
 
@@ -175,6 +260,24 @@ public partial class MainWindow : Window
             $"Wall:  {mp.Type}  {wp.Bond}  W={wp.BrickWidth}  H={wp.BrickHeight}  M={wp.MortarWidth:F1}\n" +
             $"Floor: {fp.Bond}  W={fp.BrickWidth}  H={fp.BrickHeight}  M={fp.MortarWidth:F1}\n" +
             $"Generated in {sw.ElapsedMilliseconds}ms";
+    }
+
+    private void GenerateCap(int seed, ColorPalette palette, MaterialParameters? matParams, StructureParameters wallParams)
+    {
+        var tiles = Blob47Table.CanonicalFlags
+            .Select(flags =>
+            {
+                var buf = new PixelBuffer();
+                CapContextRenderer.Apply(buf, flags, palette, matParams, wallParams, 0, 0, seed);
+                return buf;
+            })
+            .ToList();
+
+        int fw    = CapContextRenderer.FasciaWidth(wallParams);
+        int cycle = wallParams.CapCycle;
+        CapGridImage.Source = BitmapHelper.ToGridBitmapSource(tiles, columns: 4, scale: 3, gap: 2);
+        CapStatusLabel.Text = $"16 cap variants · fasciaWidth={fw}px · bond={wallParams.Bond} · " +
+                              $"cycle={cycle} → {16 * cycle * cycle} export tiles · 3× zoom";
     }
 
     private static float ParseDegrees(string? text, float fallback)
